@@ -73,6 +73,7 @@ public class PersistedGrantStore : Duende.IdentityServer.Stores.IPersistedGrantS
             Logger.LogDebug("{persistedGrantKey} found in database", token.Key);
             await Context.PersistedGrants.Where(x => x.Key == token.Key).ExecuteDeleteAsync(CancellationTokenProvider.CancellationToken);
             Logger.LogDebug("removed {persistedGrantKey} persisted grant from database", token.Key);
+            Context.PersistedGrants.Add(persistedGrant);
             await Context.SaveChangesAsync(CancellationTokenProvider.CancellationToken);
         }
     }
@@ -123,6 +124,18 @@ public class PersistedGrantStore : Duende.IdentityServer.Stores.IPersistedGrantS
         {
             Logger.LogDebug("no {persistedGrantKey} persisted grant found in database", key);
         }
+    }
+
+    /// <inheritdoc/>
+    public virtual async Task<Models.PersistedGrant> GetAndRemoveAsync(string key)
+    {
+        using var activity = Tracing.StoreActivitySource.StartActivity("PersistedGrantStore.Remove");
+        using var transaction = Context.Database.BeginTransactionAsync();
+
+        var result = await GetAsync(key);
+        await RemoveAsync(key);
+        await Context.Database.CommitTransactionAsync();
+        return result;
     }
 
     /// <inheritdoc/>

@@ -16,12 +16,13 @@ using Duende.IdentityServer.Stores;
 using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
 using Xunit;
+using Xunit.Abstractions;
 
 namespace IntegrationTests.Stores;
 
 public class PersistedGrantStoreTests : IntegrationTest<PersistedGrantStoreTests, PersistedGrantDbContext, OperationalStoreOptions>
 {
-    public PersistedGrantStoreTests(DatabaseProviderFixture<PersistedGrantDbContext> fixture) : base(fixture)
+    public PersistedGrantStoreTests(DatabaseProviderFixture<PersistedGrantDbContext> fixture, ITestOutputHelper helper) : base(fixture)
     {
         foreach (var options in TestDatabaseProviders.SelectMany(x => x.Select(y => (DbContextOptions<PersistedGrantDbContext>)y)).ToList())
         {
@@ -60,6 +61,31 @@ public class PersistedGrantStoreTests : IntegrationTest<PersistedGrantStoreTests
         {
             var foundGrant = context.PersistedGrants.FirstOrDefault(x => x.Key == persistedGrant.Key);
             Assert.NotNull(foundGrant);
+        }
+    }
+
+    [Theory, MemberData(nameof(TestDatabaseProviders))]
+    public async Task GetAndRemoveAsync_WhenPersistedGrantExists_ExpectSuccess(DbContextOptions<PersistedGrantDbContext> options)
+    {
+        var persistedGrant = CreateTestObject();
+
+        using (var context = new PersistedGrantDbContext(options))
+        {
+            var store = new PersistedGrantStore(context, FakeLogger<PersistedGrantStore>.Create(), new NoneCancellationTokenProvider());
+            await store.StoreAsync(persistedGrant);
+        }
+
+        using (var context = new PersistedGrantDbContext(options))
+        {
+            var store = new PersistedGrantStore(context, FakeLogger<PersistedGrantStore>.Create(), new NoneCancellationTokenProvider());
+            var result = await store.GetAndRemoveAsync(persistedGrant.Key);
+            Assert.Equal(persistedGrant.ClientId, result.ClientId);
+        }
+
+        using (var context = new PersistedGrantDbContext(options))
+        {
+            var foundGrant = context.PersistedGrants.FirstOrDefault(x => x.Key == persistedGrant.Key);
+            Assert.Null(foundGrant);
         }
     }
 

@@ -149,7 +149,6 @@ public class DefaultGrantStore<T>
 
         return default;
     }
-    
     /// <summary>
     /// Gets the items.
     /// </summary>
